@@ -1,91 +1,65 @@
-# 🚀 Freemchost 服务器全自动续期助手
+# 🚀 Freemchost 服务器全自动续期助手 (全新链式安全版)
 
 [注册地址](https://freemchost.com)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Platform](https://img.shields.io/badge/platform-GitHub%20Actions-orange)
 
-本脚本用于自动化管理 **Freemchost** 游戏/应用服务器（基于 Pterodactyl 翼龙面板）的续期流程。针对免费微型套餐（Free mini）**每 48 小时需手动续期一次**的限制，通过本脚本配合 GitHub Actions，实现每日定时全自动登录、派发续期指令、提取最新到期时间，并通过 Telegram 实时通知续期状态。
+本脚本用于全自动管理 **Freemchost** 游戏/应用服务器（基于 Pterodactyl 翼龙面板）的续期流程。针对免费微型套餐（Free mini）**每 48 小时需手动续期一次**的严格限制，本系统采用全新的**“链式双接口”机制**，配合 GitHub Actions 实现每日全自动安全续期、多维度状态校验以及消息推送。
 
 ---
 
 ## ✨ 核心特性
 
-* **全自动链式运行**：自动模拟登录获取个人专属 Token，并动态注入续期接口。
-* **自适应数据解包**：独创自适应动态键值对对齐解析器，能自动从复杂的网络压缩映射流中精准提取出到期时间、服务器名称和运行状态，拒绝冗长日志。
-* **零本地依赖托管**：完全基于 GitHub Actions 虚拟环境运行，无需本地服务器或常驻后台。
-* **多维度 TG 状态推送**：无论续期成功或失败，Telegram 机器人都会准时将精简的服务器状态及直达工作流链接推送到你的手机。
-* **安全凭证防护**：敏感数据（账户、密码、密钥）全线接入 GitHub Secrets 加密存储，拒绝源码泄露风险。
+* **全自动链式运行**：自动模拟登录获取个人专属 Access Token，并动态注入后续所有内部函数路由。
+* **双接口闭环验证**：
+  * **接口 A (Action 路由)**：下发核心续期指令，并深度解析轻量级压缩包，精准捕获 `expires_at` 到期时间。
+  * **接口 B (Detail 路由)**：续期动作生效后，紧接着拉取最终服务器完整状态（服务器名称、在线状态等），确保续期结果 100% 真实有效。
+* **透明化步骤监控**：完美输出步骤 1/2（续期动作）的返回快照与执行状态码（Error Code），让每一笔自动化续期都有据可查。
+* **零依赖云端托管**：完全基于 GitHub Actions 虚拟环境运行，无需本地服务器或常驻后台，完全免费。
+* **安全凭证防护**：账户、密码、密钥全线接入 GitHub Secrets 加密存储，拒绝源码泄露风险，安全防封。
 
 ---
 
-## 🔍 核心参数获取指引（抓包教程）
+## 🔍 核心参数获取指引（最新抓包教程）
 
-当网站升级或你更换了新的服务器时，脚本中的 `RENEW_URL` 和 `SERVER_ID` 需要同步更新。请按照以下步骤获取最新值：
+当网站后端升级或你更换了新的服务器时，脚本中的路由参数需要同步更新。请按照以下步骤获取最新值：
 
-### 步骤 1：开启浏览器开发者工具
-1. 使用电脑浏览器（推荐 Chrome 或 Edge）打开并登录 [Freemchost 官网](https://new.freemchost.com)。
-2. 进入你的服务器控制台管理页面（此时地址栏通常会显示为 `https://new.freemchost.com/app/servers/xxxxx`）。
+### 1. 抓取双接口路由 (`RENEW_ACTION_URL` 与 `RENEW_DETAIL_URL`)
+1. 使用电脑浏览器登录 [Freemchost 官网](https://new.freemchost.com)。
+2. 进入你的服务器控制台管理页面（此时地址栏通常显示为 `https://new.freemchost.com/app/servers/xxxxx`）。
 3. 按下键盘上的 **F12** 键（或右键点击页面选择“检查”），切换到 **Network（网络）** 标签页。
-4. 在过滤框中输入 `_serverFn` 锁定目标请求，并确保清空了旧的抓包记录。
+4. 在过滤框中输入 `_serverFn` 锁定目标请求，并清空旧的抓包记录。
+5. **获取【接口 A：Action 路由】**：在网页上点击 **"Renew"（续期）** 按钮。此时网络面板会立刻弹出一个全新的 `POST` 请求（URL 后面带有一长串哈希特征码）。点击该请求，在右侧的 **Headers（标头）** 中找到 **Request URL** 完整复制出来，它就是最新的 `RENEW_ACTION_URL`。
+6. **获取【接口 B：Detail 路由】**：续期完成后，点击网页上的刷新按钮或者切换一下菜单让页面刷新。此时网络面板会弹出另一个 `_serverFn` 请求，里面返回了包含服务器名称、面板地址在内的完整大 JSON。复制该请求的 **Request URL**，它就是最新的 `RENEW_DETAIL_URL`。
 
-### 步骤 2：触发续期动作并抓包
-1. 在网页上点击 **"Renew"（续期）** 按钮。
-2. 此时网络面板中会弹出一个全新的网络请求：
-   * **获取 `RENEW_URL`**：点击这个请求，在右侧的 **Headers（标头）** -> **General（常规）** 中找到 **Request URL（请求 URL）**。将其完整复制出来，替换掉脚本中的 `RENEW_URL`。
-   * **获取 `SERVER_ID`**：点击该请求右侧的 **Payload（负载）** 标签页（或 Preview/Response），寻找形如 `c1487010-5680-43b7...` 的 36 位长字符串（带连字符的 UUID）；或者最简单的方法，直接在**浏览器地址栏**的 URL 尾部（`/app/servers/` 后面那一串）复制该 ID。将其替换掉脚本中的 `SERVER_ID`。
+### 2. 获取 `SERVER_ID`
+* 最简单的方法：直接在**浏览器地址栏**的 URL 尾部（`/app/servers/` 后面那一串 36 位长、带连字符的 UUID）复制即可。
+
+### 3. 抓取 `ANON_KEY` (Supabase 公钥)
+1. 退出当前的登录状态，回到 Freemchost 登录页面。打开 F12 开发者工具，切换到 **Network（网络）** 标签。
+2. 在过滤框中输入 `token?grant_type=password`。
+3. 输入邮箱和密码点击登录，点击下方的抓包请求。
+4. 在右侧 **Headers（标头）** -> **Request Headers（请求标头）** 区域中找到 `apikey` 或 `authorization` 字段。后面那串以 `eyJhbGci...` 开头的几百位超长字符串就是 `ANON_KEY`（复制 `authorization` 时注意去掉前面的 `Bearer ` 关键字）。
 
 ---
 
 ## 🛠️ 快速部署指南
 
-### 1. 准备 Telegram 通知凭证（可选）
-1. 在 Telegram 中私聊 [@BotFather](https://t.me/BotFather) 发送 `/newbot`，按提示创建机器人并获取 `TG_BOT_TOKEN`。
-2. 私聊 [@getmyid_bot](https://t.me/getmyid_bot) 发送任意消息，获取你个人的纯数字 `TG_USER_ID`。
-
-### 2. 配置 GitHub Secrets
-将本仓库 Fork 或推送到你的 GitHub 后，点击仓库顶部的 **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**，依次添加以下加密变量：
+### 1. 配置 GitHub Secrets
+将本仓库 Fork 或推送到你的私有/公开 GitHub 仓库后，点击仓库顶部的 **Settings** -> **Secrets and variables** -> **Actions** -> **New repository secret**，依次添加以下加密变量：
 
 | Secret 名称 | 填入的值 / 示例 | 说明 |
 | :--- | :--- | :--- |
-| `MY_EMAIL` | `your_email@gmail.com` | 你的 Freemchost 登录邮箱 |
-| `MY_PASSWORD` | `your_password` | 你的 Freemchost 登录密码 |
-| `ANON_KEY` | `eyJhbGciOiJIUzI1NiIs...` | 前端固定的 Supabase 公钥 |
-| `TG_BOT_TOKEN` | `123456789:ABCdef...` | （可选）Telegram 机器人 Token |
-| `TG_USER_ID` | `987654321` | （可选）你的 Telegram 个人数字 ID |
-```
-🔍 抓取 ANON_KEY 详细步骤
-第一步：打开登录页面与开发者工具
-退出你当前在 Freemchost 的登录状态，回到 Freemchost 登录页面。
+| `MY_EMAIL` | `your_email@gmail.com` | 你的 Freemchost 登录邮箱 (必填) |
+| `MY_PASSWORD` | `your_password` | 你的 Freemchost 登录密码 (必填) |
+| `ANON_KEY` | `eyJhbGciOiJIUzI1NiIs...` | 前端抓取到的 Supabase 专属公钥 (必填) |
+| `SCKEY` | `SCT123456T...` | （可选）Server酱微信推送公钥 |
 
-按键盘上的 F12（或右键选择“检查”），打开浏览器开发者工具。
-
-切换到 Network（网络） 标签页。
-
-在网络面板的过滤器（Filter）输入框中，输入 token?grant_type=password。
-
-第二步：触发登录抓包
-在网页上输入你的邮箱和密码，点击 Login（登录） 按钮。
-
-此时，下方的网络面板中会弹出一个名为 token?grant_type=password... 的请求。
-
-点击这个请求，在右侧切换到 Headers（标头） 标签页。
-
-第三步：提取 ANON_KEY
-在 Headers 视图中，向下滚动找到 Request Headers（请求标头） 区域，你会看到两个关键的字段：
-
-apikey
-
-authorization
-
-这两个字段后面跟着的那串以 eyJhbGci... 开头、长达几百位的超级长字符串，就是 ANON_KEY。
-
-注意：复制的时候，如果是 authorization 字段，记得不要复制前面的 Bearer  这几个字母，只复制后面 eyJ 开头的纯密文即可。`
-```
-### 3. 文件结构说明
-请确保你的 GitHub 仓库中包含以下核心文件且路径正确：
+### 2. 配置文件结构
+请确保你的 GitHub 仓库中包含以下核心文件且路径严格一致：
 ```text
 ├── .github/
 │   └── workflows/
-│       └── auto_renew.yml      # GitHub Actions 工作流配置文件（内含定时与TG通知逻辑）
-├── renew1.py                   # 完善后的核心 Python 续期与压缩流解析脚本（修改 RENEW_URL 与 SERVER_ID 处）
+│       └── auto_renew.yml      # GitHub Actions 工作流配置文件
+├── renew.py                    # 完美改造后的链式核心 Python 续期脚本
 └── README.md                   # 本说明文件
